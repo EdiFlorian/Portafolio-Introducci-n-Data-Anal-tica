@@ -1,0 +1,19 @@
+data = read.csv('C:/Users/edida/OneDrive/Escritorio/Tareas/Maestria/Trimestre IV/Intro. Mineria de Datos/db_csv_/MIGRACION_BDP.CSV', sep=',')
+View(data)
+
+
+
+library(arules)
+
+
+# Convertir los datos a formato transaccional
+datos_trans <- as(data ,"transactions")
+
+# Aplicar algoritmo Apriori
+reglas <- apriori(datos_trans,
+                  parameter = list(supp = 0.01, # Soporte mínimo
+                                 conf = 0.5,    # Confianza mínima
+                                 minlen = 2))   # Longitud mínima de reglas
+
+# Ver las reglas ordenadas por lift
+inspect(head(sort(reglas, by = "lift"), 10))

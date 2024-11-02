@@ -1,0 +1,103 @@
+```{r}
+data = read.csv('C:/Users/edida/OneDrive/Escritorio/Tareas/Maestria/Trimestre IV/Intro. Mineria de Datos/db_csv_/MIGRACION_BDP.CSV', sep=',')
+View(data)
+
+library(stats)
+library(ggplot2)
+library(cluster)
+library(gridExtra)
+
+# Cargar las librerías necesarias
+library(arules)
+library(arulesViz)
+
+# Convertir los datos a formato transaccional
+datos_trans <- as(data ,"transactions")
+
+# Aplicar algoritmo Apriori
+reglas <- apriori(datos_trans,
+                  parameter = list(supp = 0.01, # Soporte mínimo
+                                 conf = 0.5,    # Confianza mínima
+                                 minlen = 2))   # Longitud mínima de reglas
+
+# Ver las reglas ordenadas por lift
+inspect(head(sort(reglas, by = "lift"), 10))
+
+
+# Primero veamos la estructura de los datos
+print("Estructura de los datos originales:")
+View(data)
+str(data)
+
+# Preparar los datos limpiando NAs y asegurándonos que son numéricos
+datos_cluster <- data.frame(
+  COD_MUNICIPIO = as.numeric(as.character(data$COD_MUNICIPIO)),
+  ZONA = as.numeric(as.character(data$ZONA)),
+  ID_EMIGRACION = as.numeric(as.character(data$ID_EMIGRACION))
+)
+View(data)
+# Verificar NAs
+print("Número de NAs por columna:")
+print(colSums(is.na(datos_cluster)))
+
+# Eliminar filas con NAs
+datos_cluster <- na.omit(datos_cluster)
+
+# Verificar que los datos están limpios
+print("Resumen de datos después de limpieza:")
+summary(datos_cluster)
+
+# Estandarizar los datos
+datos_scaled <- scale(datos_cluster)
+
+# Verificar que la estandarización funcionó
+print("Resumen de datos estandarizados:")
+summary(datos_scaled)
+
+# Ahora intentar el kmeans
+set.seed(123)
+wss <- sapply(1:10, function(k) {
+  tryCatch({
+    kmeans(datos_scaled, centers = k, nstart = 25)$tot.withinss
+  }, error = function(e) {
+    print(paste("Error en k =", k, ":", e$message))
+    return(NA)
+  })
+})
+
+# Si el código anterior funciona, procedemos con el análisis
+if(!all(is.na(wss))) {
+  # Graficar método del codo
+  plot(1:10, wss, type = "b", 
+       xlab = "Número de Clusters (k)", 
+       ylab = "Suma total de cuadrados dentro del cluster",
+       main = "Método del Codo para Determinar k Óptimo")
+  
+  # Aplicar k-means con k=3
+  kmeans_result <- kmeans(datos_scaled, centers = 3, nstart = 25)
+  
+  # Crear visualización básica
+  plot(datos_cluster$COD_MUNICIPIO, datos_cluster$ZONA,
+       col = kmeans_result$cluster,
+       pch = 16,
+       main = "Clusters de Patrones Migratorios",
+       xlab = "Código Municipio",
+       ylab = "Zona")
+  
+  # Añadir centroides
+  points(kmeans_result$centers[,1], kmeans_result$centers[,2],
+         col = 1:3,
+         pch = 8,
+         cex = 2)
+  
+  # Estadísticas por cluster
+  print("Estadísticas por Cluster:")
+  print(aggregate(datos_cluster, 
+                 by = list(Cluster = kmeans_result$cluster), 
+                 FUN = function(x) c(mean = mean(x), sd = sd(x))))
+  
+  # Tamaño de cada cluster
+  print("Tamaño de cada cluster:")
+  print(table(kmeans_result$cluster))
+}
+```
